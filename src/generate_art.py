@@ -1,6 +1,7 @@
 from typing import Tuple
 from PIL import Image, ImageDraw, ImageChops
 import random
+import colorsys
 
 
 def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
@@ -8,23 +9,55 @@ def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
     return tuple([int((f * c1[i] + rf * c2[i])) for i in range(3)])
 
 
+def generate_starting_color():
+    h = random.random()
+    s = 0.7 + 0.3 * random.random()
+    v = 0.7 + 0.3 * random.random()
+    float_rgb = colorsys.hsv_to_rgb(h, s, v)
+    return tuple(map(lambda x: int(x * 255), float_rgb))
+
+
+def generate_end_color(start_color):
+    # Convert color into HSV.
+    h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
+    h += 0.1 + random.random() * 0.5
+    v = min(1, v + random.random() * 0.5)
+    s = min(1, s + random.random() * 0.5)
+    float_rgb = colorsys.hsv_to_rgb(h, s, v)
+    return tuple(map(lambda x: int(x * 255), float_rgb))
+
+
+def generate_bg_color(start_color):
+    # Convert color into HSV.
+    h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
+
+    h += 0.2 * random.random()
+
+    # Make it dark.
+    v = 0.15
+
+    # De-saturate.
+    s = 0.3
+
+    float_rgb = colorsys.hsv_to_rgb(h, s, v)
+    return tuple(map(lambda x: int(x * 255), float_rgb))
+
+
 def generate_art(output_path: str):
     print("Generating art!")
 
-    default_color = (25, 15, 35)
     black = (0, 0, 0)
 
-    # line_color = (0, 150, 30)
-
-    start_color = (0, 150, 50)
-    end_color = (50, 50, 150)
+    start_color = generate_starting_color()
+    end_color = generate_end_color(start_color)
+    default_color = (25, 28, 42)
 
     image_size_px = 512
-    padding_px = 64
+    padding_px = 50
     iterations = 12
     max_thickness = 12
     min_thickness = 2
-    shape_close_off = 3
+    shape_close_off = 4
 
     image = Image.new("RGB", (image_size_px, image_size_px), color=default_color)
     # draw = ImageDraw.Draw(image)
@@ -58,16 +91,16 @@ def generate_art(output_path: str):
     points = [(x + x_offset, y + y_offset) for x, y in points]
 
     current_thickness = min_thickness
-    thickness_mod = 1
+    thickness_mod = 2
 
     n_points = len(points)
     for i in range(n_points):
 
         current_thickness = current_thickness + thickness_mod
         if current_thickness == max_thickness:
-            thickness_mod = -1
+            thickness_mod = -2
         if current_thickness == min_thickness:
-            thickness_mod = 1
+            thickness_mod = 2
         current_point = points[i]
         if i == n_points - 1:
             next_point = points[0]
