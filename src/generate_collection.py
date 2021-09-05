@@ -31,12 +31,14 @@ class ArtworkMetadata:
         }
 
 
-def generate_collection(collection_id: str, folder_path: str, n: int):
+def generate_collection(
+    collection_id: str, folder_path: str, n: int, start_index: int = 1
+):
     collection_path = os.path.join(folder_path, collection_id)
     os.makedirs(collection_path, exist_ok=True)
 
-    for i in range(n):
-        generate_single_artwork(collection_id, collection_path, i + 1)
+    for i in range(start_index, start_index + n):
+        generate_single_artwork(collection_id, collection_path, i)
 
 
 def generate_single_artwork(collection_id: str, collection_path: str, item_id: int):
