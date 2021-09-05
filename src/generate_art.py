@@ -1,8 +1,31 @@
-from typing import Tuple
+from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageChops
 import random
 import colorsys
 
+class ArtNode:
+    def __init__(self, x: int, y: int, thickness: int) -> None:
+        self.x = x
+        self.y = y
+        self.line_thickness: int = thickness
+
+    def xy(self):
+        return (self.x, self.y)
+
+    def serialize(self):
+        return f"{self.x}.{self.y}.{self.line_thickness}"
+
+class Art:
+    def __init__(self) -> None:
+        self.start_color: tuple = (0, 0, 0)
+        self.end_color: tuple = (0, 0, 0)
+        self.art_nodes: List[ArtNode] = []
+    
+    def serialize(self) -> str:
+        start_color_hex = rgb_to_hex(self.start_color)
+        end_color_hex = rgb_to_hex(self.end_color)
+        code = f"000:{start_color_hex}:{end_color_hex}:" + ":".join([node.serialize() for node in self.art_nodes])
+        return code
 
 def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
     rf = 1 - f
@@ -75,63 +98,75 @@ def generate_art_by_color(start_color, end_color, output_path: str):
     print(f"end color: {rgb_to_hex(end_color)}")
 
     image = Image.new("RGB", (image_size_px, image_size_px), color=default_color)
-    # draw = ImageDraw.Draw(image)
-
-    points = []
 
     # Generate a bunch of random points.
     min_p = padding_px
     max_p = image_size_px - padding_px
+    art_nodes = []
+    thickness = min_thickness
+    thickness_mod = thickness_delta
 
     for i in range(iterations):
         x = random.randint(min_p, max_p)
         y = random.randint(min_p, max_p)
-        new_point = (x, y)
-        points.append(new_point)
+
+        # Get the thickness
+        thickness = thickness + thickness_mod
+        if thickness == max_thickness:
+            thickness_mod = -thickness_delta
+        if thickness == min_thickness:
+            thickness_mod = thickness_delta
+
+        # Create the node.
+        node = ArtNode(x=x, y=y, thickness=thickness)
+        art_nodes.append(node)
 
         # Everytime we close off a shape, we add the starting point.
         if i % shape_close_off == 0 and i != 0:
-            points.append(points[-shape_close_off])
+            art_nodes.append(art_nodes[-shape_close_off])
 
     # Add the first point back to the end, so it closes the shape.
-    points.append(points[0])
+    art_nodes.append(art_nodes[0])
 
     # Center the shape.
-    min_x = min([x for x, _ in points])
-    min_y = min([y for _, y in points])
-    max_x = max([x for x, _ in points])
-    max_y = max([y for _, y in points])
+    min_x = min([n.x for n in art_nodes])
+    min_y = min([n.y for n in art_nodes])
+    max_x = max([n.x for n in art_nodes])
+    max_y = max([n.y for n in art_nodes])
     x_offset = ((image_size_px - max_x) - min_x) // 2
     y_offset = ((image_size_px - max_y) - min_y) // 2
-    points = [(x + x_offset, y + y_offset) for x, y in points]
 
-    current_thickness = min_thickness
-    thickness_mod = thickness_delta
+    for node in art_nodes:
+        node.x += x_offset
+        node.y += y_offset
 
-    n_points = len(points)
+    # Serialize the artwork.
+    art = Art()
+    art.art_nodes = art_nodes
+    art.start_color = start_color
+    art.end_color = end_color
+    print(f"Serialized art: {art.serialize()}")
+
+    # Draw the artwork.
+    n_points = len(art_nodes)
     for i in range(n_points):
 
-        current_thickness = current_thickness + thickness_mod
-        if current_thickness == max_thickness:
-            thickness_mod = -thickness_delta
-        if current_thickness == min_thickness:
-            thickness_mod = thickness_delta
-        current_point = points[i]
+        node = art_nodes[i]
         if i == n_points - 1:
-            next_point = points[0]
+            next_node = art_nodes[0]
         else:
-            next_point = points[i + 1]
+            next_node = art_nodes[i + 1]
 
         # Get the right color.
         color_factor = abs(((i * 2) / n_points) - 1)
-        line_color = interpolate(end_color, start_color, color_factor)
+        line_color = interpolate(art.end_color, art.start_color, color_factor)
 
         overlay = Image.new("RGB", (image_size_px, image_size_px), color=black)
         overlay_draw = ImageDraw.Draw(overlay)
         overlay_draw.line(
-            [current_point, next_point],
+            [node.xy(), next_node.xy()],
             fill=line_color,
-            width=current_thickness,
+            width=node.line_thickness,
         )
         image = ImageChops.add(image, overlay)
 
@@ -143,6 +178,3 @@ def generate_art_by_color(start_color, end_color, output_path: str):
 
     return image
 
-
-if __name__ == "__main__":
-    generate_art()
