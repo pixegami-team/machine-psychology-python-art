@@ -50,13 +50,16 @@ def generate_bg_color(start_color):
 
 
 def generate_art(output_path: str):
+    start_color = generate_starting_color()
+    end_color = generate_end_color(start_color)
+    generate_art_by_color(start_color, end_color, output_path)
+
+
+def generate_art_by_color(start_color, end_color, output_path: str):
     print("Generating art!")
 
     black = (0, 0, 0)
-
-    start_color = generate_starting_color()
-    end_color = generate_end_color(start_color)
-    default_color = (25, 28, 42)
+    default_color = (12, 16, 36)
 
     scale_factor = 2
 
@@ -137,7 +140,8 @@ def generate_art(output_path: str):
         (image_size_px // 2, image_size_px // 2), resample=Image.ANTIALIAS
     )
     image.save(output_path)
-    overlay.save("tst_output/overlay.png")
+
+    return image
 
 
 if __name__ == "__main__":

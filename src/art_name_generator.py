@@ -8,7 +8,7 @@ def new_example(c1: str, c2: str, name: str):
     return f"[{c1}, {c2}]: {name} #"
 
 
-def generate_name(start_color: str, end_color: str):
+def generate_name(start_color: str, end_color: str, name_set: set = None):
 
     examples = [
         new_example("Black", "Red Ochre", "Waiting for death"),
@@ -33,8 +33,20 @@ def generate_name(start_color: str, end_color: str):
         temperature=0.8,
         presence_penalty=0.5,
         frequency_penalty=0.5,
+        n=3,
     )
 
-    art_title = [r["text"].strip("\n") for r in response["choices"]][0]
+    titles = [r["text"].strip("\n").strip(" ") for r in response["choices"]]
+
+    if name_set is not None:
+        # Avoid naming collisions.
+        for title in titles:
+            art_title = title
+            if art_title not in name_set:
+                break
+        name_set.add(art_title)
+    else:
+        art_title = titles[0]
+
     print(art_title)
     return art_title
