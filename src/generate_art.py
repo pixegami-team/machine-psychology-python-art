@@ -11,16 +11,22 @@ def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
 
 def generate_starting_color():
     h = random.random()
-    s = 0.7 + 0.3 * random.random()
-    v = 0.7 + 0.3 * random.random()
+    s = 0.8 + 0.2 * random.random()
+    v = 0.8 + 0.2 * random.random()
     float_rgb = colorsys.hsv_to_rgb(h, s, v)
     return tuple(map(lambda x: int(x * 255), float_rgb))
+
+
+def rgb_to_hex(color: Tuple[int]):
+    return "#{:02x}{:02x}{:02x}".format(*color)
 
 
 def generate_end_color(start_color):
     # Convert color into HSV.
     h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
-    h += 0.1 + random.random() * 0.5
+
+    h += random.choice([0.2, 0.4])
+
     v = min(1, v + random.random() * 0.5)
     s = min(1, s + random.random() * 0.5)
     float_rgb = colorsys.hsv_to_rgb(h, s, v)
@@ -52,12 +58,18 @@ def generate_art(output_path: str):
     end_color = generate_end_color(start_color)
     default_color = (25, 28, 42)
 
-    image_size_px = 512
-    padding_px = 50
-    iterations = 12
-    max_thickness = 12
-    min_thickness = 2
+    scale_factor = 2
+
+    image_size_px = 256 * scale_factor
+    padding_px = 32 * scale_factor
+    iterations = 9
+    max_thickness = 6 * scale_factor
+    min_thickness = 2 * scale_factor
+    thickness_delta = 1 * scale_factor
     shape_close_off = 4
+
+    print(f"start color: {rgb_to_hex(start_color)}")
+    print(f"end color: {rgb_to_hex(end_color)}")
 
     image = Image.new("RGB", (image_size_px, image_size_px), color=default_color)
     # draw = ImageDraw.Draw(image)
@@ -91,16 +103,16 @@ def generate_art(output_path: str):
     points = [(x + x_offset, y + y_offset) for x, y in points]
 
     current_thickness = min_thickness
-    thickness_mod = 2
+    thickness_mod = thickness_delta
 
     n_points = len(points)
     for i in range(n_points):
 
         current_thickness = current_thickness + thickness_mod
         if current_thickness == max_thickness:
-            thickness_mod = -2
+            thickness_mod = -thickness_delta
         if current_thickness == min_thickness:
-            thickness_mod = 2
+            thickness_mod = thickness_delta
         current_point = points[i]
         if i == n_points - 1:
             next_point = points[0]
