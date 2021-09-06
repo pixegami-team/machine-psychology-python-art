@@ -102,7 +102,7 @@ def generate_single_artwork(
 
 def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     card_width = 512
-    card_padding = 32
+    card_padding = 64
     preview_color = (255, 255, 255)
     text_id_color = (150, 150, 180)
     text_meta_data_color = (120, 120, 140)
@@ -110,14 +110,15 @@ def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     font_name = "font/RobotoMono-Regular.ttf"
     font_bold_name = "font/RobotoMono-Bold.ttf"
 
-    im_width, im_height = image.size
+    im_size = 256
 
-    preview_width = 3 * card_padding + card_width + im_width
-    preview_height = 2 * card_padding + im_height
+    preview_width = 3 * card_padding + card_width + im_size
+    preview_height = 2 * card_padding + im_size
     preview = Image.new("RGB", (preview_width, preview_height), color=preview_color)
 
     # Add the original image.
-    preview.paste(image, (card_padding, card_padding))
+    image_resized = image.resize((im_size, im_size), resample=Image.ANTIALIAS)
+    preview.paste(image_resized, (card_padding, card_padding))
 
     # Draw meta-data.
     font = ImageFont.truetype(font_name, 24)
@@ -125,7 +126,7 @@ def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     code_font = ImageFont.truetype(font_bold_name, 14)
     draw = ImageDraw.Draw(preview)
 
-    tx = 2 * card_padding + im_width
+    tx = 2 * card_padding + im_size
     ty = card_padding
 
     # Image ID

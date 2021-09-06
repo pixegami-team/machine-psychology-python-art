@@ -11,4 +11,4 @@ def test_generate_collection():
 def test_generate_collection_skip_ai():
     collection_id = "test"
     collection_path = f"tst_output"
-    generate_collection(collection_id, collection_path, 3, use_ai=False)
+    generate_collection(collection_id, collection_path, 32, use_ai=False)

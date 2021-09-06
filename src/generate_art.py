@@ -125,12 +125,12 @@ def generate_art_by_color(start_color, end_color, output_path: str):
 def generate_art_code(start_color, end_color):
 
     # Settings
-    terminal_size_px = 256
+    terminal_size_px = 512
     scale_factor = terminal_size_px // 128
     image_size_px = terminal_size_px * 2
     padding_px = 32 * scale_factor
-    iterations = 9
-    max_thickness = 6 * scale_factor
+    iterations = random.choice([7, 8, 9])
+    max_thickness = 10 * scale_factor
     min_thickness = 2 * scale_factor
     thickness_delta = 1 * scale_factor
     shape_close_off = 4
@@ -139,8 +139,10 @@ def generate_art_code(start_color, end_color):
     min_p = padding_px
     max_p = image_size_px - padding_px
     art_nodes = []
-    thickness = min_thickness
-    thickness_mod = thickness_delta
+    thickness = random.randint(
+        min_thickness + thickness_delta, max_thickness - thickness_delta
+    )
+    thickness_mod = random.choice([thickness_delta, -thickness_delta])
 
     for i in range(iterations):
         x = random.randint(min_p, max_p)
@@ -148,9 +150,12 @@ def generate_art_code(start_color, end_color):
 
         # Get the thickness
         thickness = thickness + thickness_mod
-        if thickness == max_thickness:
+        thickness = max(thickness, min_thickness)
+        thickness = min(thickness, max_thickness)
+
+        if thickness >= max_thickness:
             thickness_mod = -thickness_delta
-        if thickness == min_thickness:
+        if thickness <= min_thickness:
             thickness_mod = thickness_delta
 
         # Create the node.
