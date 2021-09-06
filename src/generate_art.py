@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw, ImageChops
 import random
 import colorsys
 
+
 class ArtNode:
     def __init__(self, x: int, y: int, thickness: int) -> None:
         self.x = x
@@ -15,17 +16,44 @@ class ArtNode:
     def serialize(self):
         return f"{self.x}.{self.y}.{self.line_thickness}"
 
+    @staticmethod
+    def deserialize(code: str) -> "ArtNode":
+        code_arr = code.split(".")
+        x = int(code_arr[0])
+        y = int(code_arr[1])
+        line_thickness = int(code_arr[2])
+        return ArtNode(x, y, line_thickness)
+
+
 class Art:
     def __init__(self) -> None:
         self.start_color: tuple = (0, 0, 0)
         self.end_color: tuple = (0, 0, 0)
-        self.art_nodes: List[ArtNode] = []
-    
+        self.nodes: List[ArtNode] = []
+        self.size: int = 0
+
     def serialize(self) -> str:
-        start_color_hex = rgb_to_hex(self.start_color)
-        end_color_hex = rgb_to_hex(self.end_color)
-        code = f"000:{start_color_hex}:{end_color_hex}:" + ":".join([node.serialize() for node in self.art_nodes])
+        start_color_hex = rgb_to_hex(self.start_color).strip("#")
+        end_color_hex = rgb_to_hex(self.end_color).strip("#")
+        code = f"A:{self.size}:{start_color_hex}:{end_color_hex}:" + ":".join(
+            [node.serialize() for node in self.nodes]
+        )
         return code
+
+    @staticmethod
+    def deserialize(code: str) -> "Art":
+        art = Art()
+        code_arr = code.split(":")
+        art.size = int(code_arr[1])
+        art.start_color = _hex_to_rgb(code_arr[2])
+        art.end_color = _hex_to_rgb(code_arr[3])
+
+        node_str_arr = code_arr[4:]
+        for node_str in node_str_arr:
+            art.nodes.append(ArtNode.deserialize(node_str))
+
+        return art
+
 
 def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
     rf = 1 - f
@@ -42,6 +70,11 @@ def generate_starting_color():
 
 def rgb_to_hex(color: Tuple[int]):
     return "#{:02x}{:02x}{:02x}".format(*color)
+
+
+def _hex_to_rgb(hexcode: str):
+    hexcode = hexcode.strip("#")
+    return (int(hexcode[0:2], 16), int(hexcode[2:4], 16), int(hexcode[4:6], 16))
 
 
 def generate_end_color(start_color):
@@ -81,23 +114,26 @@ def generate_art(output_path: str):
 def generate_art_by_color(start_color, end_color, output_path: str):
     print("Generating art!")
 
-    black = (0, 0, 0)
-    default_color = (12, 16, 36)
+    print(f"start color: {rgb_to_hex(start_color)}")
+    print(f"end color: {rgb_to_hex(end_color)}")
 
-    scale_factor = 2
+    code = generate_art_code(start_color, end_color)
+    image = generate_art_from_code(code, output_path=output_path)
+    return image
 
-    image_size_px = 256 * scale_factor
+
+def generate_art_code(start_color, end_color):
+
+    # Settings
+    terminal_size_px = 256
+    scale_factor = terminal_size_px // 128
+    image_size_px = terminal_size_px * 2
     padding_px = 32 * scale_factor
     iterations = 9
     max_thickness = 6 * scale_factor
     min_thickness = 2 * scale_factor
     thickness_delta = 1 * scale_factor
     shape_close_off = 4
-
-    print(f"start color: {rgb_to_hex(start_color)}")
-    print(f"end color: {rgb_to_hex(end_color)}")
-
-    image = Image.new("RGB", (image_size_px, image_size_px), color=default_color)
 
     # Generate a bunch of random points.
     min_p = padding_px
@@ -142,26 +178,38 @@ def generate_art_by_color(start_color, end_color, output_path: str):
 
     # Serialize the artwork.
     art = Art()
-    art.art_nodes = art_nodes
+    art.size = terminal_size_px
+    art.nodes = art_nodes
     art.start_color = start_color
     art.end_color = end_color
     print(f"Serialized art: {art.serialize()}")
+    return art.serialize()
 
+
+def generate_art_from_code(code: str, output_path: str):
+
+    art = Art.deserialize(code)
+
+    image_size_px = art.size * 2
+    BG_COLOR = (12, 16, 36)
+    BLACK = (0, 0, 0)
+
+    image = Image.new("RGB", (image_size_px, image_size_px), color=BG_COLOR)
     # Draw the artwork.
-    n_points = len(art_nodes)
+    n_points = len(art.nodes)
     for i in range(n_points):
 
-        node = art_nodes[i]
+        node = art.nodes[i]
         if i == n_points - 1:
-            next_node = art_nodes[0]
+            next_node = art.nodes[0]
         else:
-            next_node = art_nodes[i + 1]
+            next_node = art.nodes[i + 1]
 
         # Get the right color.
         color_factor = abs(((i * 2) / n_points) - 1)
         line_color = interpolate(art.end_color, art.start_color, color_factor)
 
-        overlay = Image.new("RGB", (image_size_px, image_size_px), color=black)
+        overlay = Image.new("RGB", (image_size_px, image_size_px), color=BLACK)
         overlay_draw = ImageDraw.Draw(overlay)
         overlay_draw.line(
             [node.xy(), next_node.xy()],
@@ -177,4 +225,3 @@ def generate_art_by_color(start_color, end_color, output_path: str):
     image.save(output_path)
 
     return image
-

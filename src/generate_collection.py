@@ -3,11 +3,13 @@ import json
 
 from PIL import Image, ImageFont, ImageDraw
 
-from src.art_name_generator import generate_name
+from src.art_name_generator import generate_name, generate_name_with_retry
 
 from src.color_name import ColorNameMapper
 from src.generate_art import (
     generate_art_by_color,
+    generate_art_code,
+    generate_art_from_code,
     generate_end_color,
     generate_starting_color,
 )
@@ -21,6 +23,7 @@ class ArtworkMetadata:
         self.title: str = ""
         self.start_color_name: str = ""
         self.end_color_name: str = ""
+        self.code: str = ""
 
     def serialize(self):
         return {
@@ -28,20 +31,27 @@ class ArtworkMetadata:
             "title": self.title,
             "start_color_name": self.start_color_name,
             "end_color_name": self.end_color_name,
+            "code": self.code,
         }
 
 
 def generate_collection(
-    collection_id: str, folder_path: str, n: int, start_index: int = 1
+    collection_id: str,
+    folder_path: str,
+    n: int,
+    start_index: int = 1,
+    use_ai: bool = True,
 ):
     collection_path = os.path.join(folder_path, collection_id)
     os.makedirs(collection_path, exist_ok=True)
 
     for i in range(start_index, start_index + n):
-        generate_single_artwork(collection_id, collection_path, i)
+        generate_single_artwork(collection_id, collection_path, i, use_ai)
 
 
-def generate_single_artwork(collection_id: str, collection_path: str, item_id: int):
+def generate_single_artwork(
+    collection_id: str, collection_path: str, item_id: int, use_ai: bool = True
+):
 
     art_path = os.path.join(collection_path, "art")
     os.makedirs(art_path, exist_ok=True)
@@ -59,17 +69,24 @@ def generate_single_artwork(collection_id: str, collection_path: str, item_id: i
     # Generate the actual artwork.
     start_color = generate_starting_color()
     end_color = generate_end_color(start_color)
-    image = generate_art_by_color(start_color, end_color, item_art_path)
+    code = generate_art_code(start_color, end_color)
+    image = generate_art_from_code(code, item_art_path)
 
     # Generate the meta-data.
     metadata = ArtworkMetadata()
     metadata.start_color_name = COLOR_NAME_MAPPER.get(start_color).name
     metadata.end_color_name = COLOR_NAME_MAPPER.get(end_color).name
-    metadata.title = "Untitled"
+    metadata.title = "Untitled 404"
     metadata.item_id = item_id_str
+    metadata.code = code
 
     # Generate the name
-    title = generate_name(metadata.start_color_name, metadata.end_color_name)
+    if use_ai:
+        title = generate_name_with_retry(
+            metadata.start_color_name, metadata.end_color_name
+        )
+    else:
+        title = "Untitled"
     metadata.title = title.upper()
 
     # Save the meta-data.
@@ -89,7 +106,9 @@ def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     preview_color = (255, 255, 255)
     text_id_color = (150, 150, 180)
     text_meta_data_color = (120, 120, 140)
+    text_code_color = (190, 190, 210)
     font_name = "font/RobotoMono-Regular.ttf"
+    font_bold_name = "font/RobotoMono-Bold.ttf"
 
     im_width, im_height = image.size
 
@@ -103,6 +122,7 @@ def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     # Draw meta-data.
     font = ImageFont.truetype(font_name, 24)
     color_font = ImageFont.truetype(font_name, 16)
+    code_font = ImageFont.truetype(font_bold_name, 14)
     draw = ImageDraw.Draw(preview)
 
     tx = 2 * card_padding + im_width
@@ -120,15 +140,31 @@ def generate_preview_image(image: Image, metadata: ArtworkMetadata):
     title_font = ImageFont.truetype(font_name, title_font_size)
     _, title_height = title_font.getsize(metadata.title)
     draw.text((tx, ty), metadata.title, fill=(10, 10, 15), font=title_font)
-    ty += title_height + 4
+    ty += title_height + 8
 
     # Colors
     color_set = set([metadata.start_color_name, metadata.end_color_name])
     color_set_str = ", ".join(color_set)
     color_text = f"Colors: {color_set_str}"
-    _, color_height = color_font.getsize(color_text)
-    ty = preview_height - card_padding - color_height
     draw.text((tx, ty), color_text, fill=text_meta_data_color, font=color_font)
+
+    # Art Code
+    code_char_w, code_char_h = code_font.getsize("A")
+    max_code_chars = card_width // code_char_w
+    code_text_arr = []
+    code_pointer = max_code_chars
+    previous_pointer = 0
+
+    for _ in range(1 + len(metadata.code) // code_pointer):
+        code_part = metadata.code[previous_pointer:code_pointer]
+        code_text_arr.append(code_part)
+        previous_pointer = code_pointer
+        code_pointer += max_code_chars
+
+    code_text = "\n".join(code_text_arr)
+    code_height = code_char_h * (len(code_text_arr) + 1)
+    ty = preview_height - card_padding - code_height
+    draw.text((tx, ty), code_text, fill=text_code_color, font=code_font)
 
     return preview
 
@@ -150,7 +186,6 @@ def get_best_font_size(font, word: str, screen_width: int, max_size: int) -> int
         max_line_length, _ = test_font.getsize(word)
         delta = max_line_length - screen_width
 
-        print(f"Font: {mid}, Delta: {delta}")
         if best_delta is None or abs(delta) < best_delta:
             best_delta = abs(delta)
             best_size = mid
@@ -160,5 +195,4 @@ def get_best_font_size(font, word: str, screen_width: int, max_size: int) -> int
         else:
             lower = mid
 
-    print(f"Best size: {best_size}")
     return best_size
