@@ -10,8 +10,8 @@ class ArtNode:
         self.y = y
         self.line_thickness: int = thickness
 
-    def xy(self):
-        return (self.x, self.y)
+    def xy(self, factor: int = 1):
+        return (self.x * factor, self.y * factor)
 
     def serialize(self):
         return f"{self.x}.{self.y}.{self.line_thickness}"
@@ -23,6 +23,9 @@ class ArtNode:
         y = int(code_arr[1])
         line_thickness = int(code_arr[2])
         return ArtNode(x, y, line_thickness)
+
+    def clone(self) -> "ArtNode":
+        return ArtNode(self.x, self.y, self.line_thickness)
 
 
 class Art:
@@ -62,8 +65,8 @@ def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
 
 def generate_starting_color():
     h = random.random()
-    s = 0.8 + 0.2 * random.random()
-    v = 0.8 + 0.2 * random.random()
+    s = random.choice([0.3, 0.5, 1, 1])
+    v = random.choice([0.2, 0.8])
     float_rgb = colorsys.hsv_to_rgb(h, s, v)
     return tuple(map(lambda x: int(x * 255), float_rgb))
 
@@ -81,10 +84,9 @@ def generate_end_color(start_color):
     # Convert color into HSV.
     h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
 
-    h += random.choice([0.2, 0.4])
-
-    v = min(1, v + random.random() * 0.5)
-    s = min(1, s + random.random() * 0.5)
+    h += random.random() * 0.3
+    v = 1
+    s = min(1, s + random.choice([0.2, 0.5, 1.0]))
     float_rgb = colorsys.hsv_to_rgb(h, s, v)
     return tuple(map(lambda x: int(x * 255), float_rgb))
 
@@ -131,25 +133,32 @@ def generate_art_code(start_color, end_color):
     padding_px = 32 * scale_factor
     iterations = random.choice([7, 8, 9])
     max_thickness = 10 * scale_factor
-    min_thickness = 2 * scale_factor
+    min_thickness = 3 * scale_factor
     thickness_delta = 1 * scale_factor
-    shape_close_off = 4
+    shape_close_off = random.choice([4, 7])
 
     # Generate a bunch of random points.
     min_p = padding_px
     max_p = image_size_px - padding_px
     art_nodes = []
-    thickness = random.randint(
-        min_thickness + thickness_delta, max_thickness - thickness_delta
-    )
-    thickness_mod = random.choice([thickness_delta, -thickness_delta])
+    thickness = min_thickness
+    thickness_mod = random.choice([thickness_delta])
 
     for i in range(iterations):
+
+        # Everytime we close off a shape, we add the starting point.
+        if i % shape_close_off == 0 and i != 0:
+            art_nodes.append(art_nodes[-shape_close_off].clone())
+
         x = random.randint(min_p, max_p)
         y = random.randint(min_p, max_p)
 
-        # Get the thickness
-        thickness = thickness + thickness_mod
+        # Create the node.
+        node = ArtNode(x=x, y=y, thickness=thickness)
+        art_nodes.append(node)
+
+        # Change the thickness
+        thickness += thickness_mod
         thickness = max(thickness, min_thickness)
         thickness = min(thickness, max_thickness)
 
@@ -158,28 +167,21 @@ def generate_art_code(start_color, end_color):
         if thickness <= min_thickness:
             thickness_mod = thickness_delta
 
-        # Create the node.
-        node = ArtNode(x=x, y=y, thickness=thickness)
-        art_nodes.append(node)
-
-        # Everytime we close off a shape, we add the starting point.
-        if i % shape_close_off == 0 and i != 0:
-            art_nodes.append(art_nodes[-shape_close_off])
-
     # Add the first point back to the end, so it closes the shape.
-    art_nodes.append(art_nodes[0])
+    art_nodes.append(art_nodes[0].clone())
 
     # Center the shape.
     min_x = min([n.x for n in art_nodes])
-    min_y = min([n.y for n in art_nodes])
     max_x = max([n.x for n in art_nodes])
-    max_y = max([n.y for n in art_nodes])
     x_offset = ((image_size_px - max_x) - min_x) // 2
+
+    min_y = min([n.y for n in art_nodes])
+    max_y = max([n.y for n in art_nodes])
     y_offset = ((image_size_px - max_y) - min_y) // 2
 
     for node in art_nodes:
-        node.x += x_offset
-        node.y += y_offset
+        node.x = (node.x + x_offset) // 2
+        node.y = (node.y + y_offset) // 2
 
     # Serialize the artwork.
     art = Art()
@@ -202,6 +204,7 @@ def generate_art_from_code(code: str, output_path: str):
     image = Image.new("RGB", (image_size_px, image_size_px), color=BG_COLOR)
     # Draw the artwork.
     n_points = len(art.nodes)
+
     for i in range(n_points):
 
         node = art.nodes[i]
@@ -217,13 +220,12 @@ def generate_art_from_code(code: str, output_path: str):
         overlay = Image.new("RGB", (image_size_px, image_size_px), color=BLACK)
         overlay_draw = ImageDraw.Draw(overlay)
         overlay_draw.line(
-            [node.xy(), next_node.xy()],
+            [node.xy(2), next_node.xy(2)],
             fill=line_color,
             width=node.line_thickness,
         )
         image = ImageChops.add(image, overlay)
 
-    # draw.line(points, fill=line_color, width=4, joint="curve")
     image = image.resize(
         (image_size_px // 2, image_size_px // 2), resample=Image.ANTIALIAS
     )

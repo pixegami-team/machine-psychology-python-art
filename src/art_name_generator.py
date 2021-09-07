@@ -15,18 +15,18 @@ def generate_name_with_retry(
         name = generate_name(start_color, end_color, name_set=name_set)
         if name is not None:
             return name
-    
+
     raise Exception(f"Unable to find name after {max_retry} retries")
 
 
 def generate_name(start_color: str, end_color: str, name_set: set = None):
 
     examples = [
-        new_example("Black", "Red Ochre", "Waiting for death"),
-        new_example("Ocean Blue", "Emerald", "Outworn patterns of thought"),
-        new_example("Gold", "Picton Blue", "Golden ocean"),
-        new_example("Malachite", "Spring Green", "Verdant Jungle"),
-        new_example("Purple", "Deep Koamaru", "Void vector"),
+        new_example("Black", "Red Ochre", "Give love a chance"),
+        new_example("Ocean Blue", "Emerald", "Patterns of thought"),
+        new_example("Gold", "Picton Blue", "Royal Tsunami"),
+        new_example("Malachite", "Spring Green", "Crystalline Havana"),
+        new_example("Purple", "Deep Koamaru", "The silent void"),
         new_example("Clementine", "Red", "Flamingo sunset"),
         new_example("Zest", "Bright Turquoise", "Lullaby"),
     ]
@@ -42,10 +42,10 @@ def generate_name(start_color: str, end_color: str, name_set: set = None):
         prompt=prompt,
         max_tokens=24,
         stop=["#"],
-        temperature=0.85,
+        temperature=0.9,
         presence_penalty=0.7,
         frequency_penalty=0.7,
-        n=3,
+        n=2,
     )
 
     titles = [r["text"].strip("\n").strip(" ") for r in response["choices"]]
