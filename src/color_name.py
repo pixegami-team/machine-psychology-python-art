@@ -1,28 +1,16 @@
 import colorsys
 import json
 from typing import List, Tuple
-
-
-def _hex_to_rgb(hexcode: str):
-    hexcode = hexcode.strip("#")
-    return (int(hexcode[0:2], 16), int(hexcode[2:4], 16), int(hexcode[4:6], 16))
-
-
-class ColorName:
-    def __init__(self, hex: str, name: str) -> None:
-        self.hex = hex
-        self.name = name
-        self.rgb = _hex_to_rgb(hex)
-        self.hls = colorsys.rgb_to_hls(*self.rgb)
+from color import Color
 
 
 class ColorNameMapper:
     def __init__(self, hex_color_map: str) -> None:
-        self.color_names: List[ColorName] = []
+        self.color_names: List[Color] = []
 
         with open(hex_color_map, "r") as f:
             color_names_raw = json.load(f)
-            self.color_names = [ColorName(c[0], c[1]) for c in color_names_raw]
+            self.color_names = [Color(c[0], c[1]) for c in color_names_raw]
 
     def get(self, rgb_color: Tuple[int]):
 

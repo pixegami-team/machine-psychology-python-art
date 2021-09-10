@@ -3,11 +3,11 @@ import json
 
 from PIL import Image, ImageFont, ImageDraw
 
-from src.art_name_generator import generate_name, generate_name_with_retry
+from art_name_generator import generate_name_with_retry
+from artwork_metadata import ArtworkMetadata
 
-from src.color_name import ColorNameMapper
-from src.generate_art import (
-    generate_art_by_color,
+from color_name import ColorNameMapper
+from generate_art import (
     generate_art_code,
     generate_art_from_code,
     generate_end_color,
@@ -15,24 +15,6 @@ from src.generate_art import (
 )
 
 COLOR_NAME_MAPPER = ColorNameMapper("src/color_names.json")
-
-
-class ArtworkMetadata:
-    def __init__(self) -> None:
-        self.item_id: str = ""
-        self.title: str = ""
-        self.start_color_name: str = ""
-        self.end_color_name: str = ""
-        self.code: str = ""
-
-    def serialize(self):
-        return {
-            "item_id": self.item_id,
-            "title": self.title,
-            "start_color_name": self.start_color_name,
-            "end_color_name": self.end_color_name,
-            "code": self.code,
-        }
 
 
 def generate_collection(
@@ -101,6 +83,7 @@ def generate_single_artwork(
 
 
 def generate_preview_image(image: Image, metadata: ArtworkMetadata):
+
     card_width = 512
     card_padding = 64
     preview_color = (255, 255, 255)

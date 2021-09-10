@@ -1,10 +1,8 @@
 import openai
 import os
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
-def new_example(c1: str, c2: str, name: str):
+def _new_example(c1: str, c2: str, name: str):
     return f"[{c1}, {c2}]: {name} #"
 
 
@@ -21,14 +19,20 @@ def generate_name_with_retry(
 
 def generate_name(start_color: str, end_color: str, name_set: set = None):
 
+    if openai.api_key is None:
+        if "OPENAI_API_KEY" not in os.environ:
+            return "Untitled"
+        else:
+            openai.api_key = os.getenv("OPENAI_API_KEY")
+
     examples = [
-        new_example("Black", "Red Ochre", "Give love a chance"),
-        new_example("Ocean Blue", "Emerald", "Patterns of thought"),
-        new_example("Gold", "Picton Blue", "Royal Tsunami"),
-        new_example("Malachite", "Spring Green", "Crystalline Havana"),
-        new_example("Purple", "Deep Koamaru", "The silent void"),
-        new_example("Clementine", "Red", "Flamingo sunset"),
-        new_example("Zest", "Bright Turquoise", "Lullaby"),
+        _new_example("Black", "Red Ochre", "Give love a chance"),
+        _new_example("Ocean Blue", "Emerald", "Patterns of thought"),
+        _new_example("Gold", "Picton Blue", "Royal Tsunami"),
+        _new_example("Malachite", "Spring Green", "Crystalline Havana"),
+        _new_example("Purple", "Deep Koamaru", "The silent void"),
+        _new_example("Clementine", "Red", "Flamingo sunset"),
+        _new_example("Zest", "Bright Turquoise", "Lullaby"),
     ]
 
     prompt = (
@@ -50,7 +54,6 @@ def generate_name(start_color: str, end_color: str, name_set: set = None):
 
     titles = [r["text"].strip("\n").strip(" ") for r in response["choices"]]
     titles.sort(key=lambda x: len(x))
-
     print(f"Possible Names: {titles}")
 
     if name_set is not None:

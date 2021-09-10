@@ -1,141 +1,73 @@
-from typing import List, Tuple
+from typing import Tuple
 from PIL import Image, ImageDraw, ImageChops
 import random
 import colorsys
-
-
-class ArtNode:
-    def __init__(self, x: int, y: int, thickness: int) -> None:
-        self.x = x
-        self.y = y
-        self.line_thickness: int = thickness
-
-    def xy(self, factor: int = 1):
-        return (self.x * factor, self.y * factor)
-
-    def serialize(self):
-        return f"{self.x}.{self.y}.{self.line_thickness}"
-
-    @staticmethod
-    def deserialize(code: str) -> "ArtNode":
-        code_arr = code.split(".")
-        x = int(code_arr[0])
-        y = int(code_arr[1])
-        line_thickness = int(code_arr[2])
-        return ArtNode(x, y, line_thickness)
-
-    def clone(self) -> "ArtNode":
-        return ArtNode(self.x, self.y, self.line_thickness)
-
-
-class Art:
-    def __init__(self) -> None:
-        self.start_color: tuple = (0, 0, 0)
-        self.end_color: tuple = (0, 0, 0)
-        self.nodes: List[ArtNode] = []
-        self.size: int = 0
-
-    def serialize(self) -> str:
-        start_color_hex = rgb_to_hex(self.start_color).strip("#")
-        end_color_hex = rgb_to_hex(self.end_color).strip("#")
-        code = f"A:{self.size}:{start_color_hex}:{end_color_hex}:" + ":".join(
-            [node.serialize() for node in self.nodes]
-        )
-        return code
-
-    @staticmethod
-    def deserialize(code: str) -> "Art":
-        art = Art()
-        code_arr = code.split(":")
-        art.size = int(code_arr[1])
-        art.start_color = _hex_to_rgb(code_arr[2])
-        art.end_color = _hex_to_rgb(code_arr[3])
-
-        node_str_arr = code_arr[4:]
-        for node_str in node_str_arr:
-            art.nodes.append(ArtNode.deserialize(node_str))
-
-        return art
-
-
-def interpolate(c1: Tuple[int], c2: Tuple[int], f: float):
-    rf = 1 - f
-    return tuple([int((f * c1[i] + rf * c2[i])) for i in range(3)])
+from color import Color
+from art_node import ArtNode
+from artwork import Artwork
 
 
 def generate_starting_color():
+
+    # Choose starting HSV values.
     h = random.random()
-    s = random.choice([0.3, 0.5, 1, 1])
-    v = random.choice([0.2, 0.8])
-    float_rgb = colorsys.hsv_to_rgb(h, s, v)
-    return tuple(map(lambda x: int(x * 255), float_rgb))
+    s = random.choice([0.3, 0.5, 1, 1])  # Favor saturated colors.
+    v = random.choice([0.2, 0.8])  # Either dark or bright.
 
-
-def rgb_to_hex(color: Tuple[int]):
-    return "#{:02x}{:02x}{:02x}".format(*color)
-
-
-def _hex_to_rgb(hexcode: str):
-    hexcode = hexcode.strip("#")
-    return (int(hexcode[0:2], 16), int(hexcode[2:4], 16), int(hexcode[4:6], 16))
+    return Color.hsv_float_to_rgb_int((h, s, v))
 
 
 def generate_end_color(start_color):
-    # Convert color into HSV.
     h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
 
-    h += random.random() * 0.3
-    v = 1
-    s = min(1, s + random.choice([0.2, 0.5, 1.0]))
-    float_rgb = colorsys.hsv_to_rgb(h, s, v)
-    return tuple(map(lambda x: int(x * 255), float_rgb))
+    h += random.random() * 0.3  # Don't offset hue by too much.
+    v = 1  # Set value to max.
+    s = min(1, s + random.choice([0.2, 0.5, 1.0]))  # Saturation will only increase.
 
-
-def generate_bg_color(start_color):
-    # Convert color into HSV.
-    h, s, v = colorsys.rgb_to_hsv(*map(lambda x: x / 255, start_color))
-
-    h += 0.2 * random.random()
-
-    # Make it dark.
-    v = 0.15
-
-    # De-saturate.
-    s = 0.3
-
-    float_rgb = colorsys.hsv_to_rgb(h, s, v)
-    return tuple(map(lambda x: int(x * 255), float_rgb))
+    return Color.hsv_float_to_rgb_int((h, s, v))
 
 
 def generate_art(output_path: str):
     start_color = generate_starting_color()
     end_color = generate_end_color(start_color)
-    generate_art_by_color(start_color, end_color, output_path)
+    generate_art_from_color(start_color, end_color, output_path)
 
 
-def generate_art_by_color(start_color, end_color, output_path: str):
-    print("Generating art!")
-
-    print(f"start color: {rgb_to_hex(start_color)}")
-    print(f"end color: {rgb_to_hex(end_color)}")
-
+def generate_art_from_color(start_color, end_color, output_path: str):
+    print(f"Generating art with colors: {start_color}, {end_color} to {output_path}")
     code = generate_art_code(start_color, end_color)
     image = generate_art_from_code(code, output_path=output_path)
     return image
 
 
-def generate_art_code(start_color, end_color):
+def generate_art_code(start_color: Tuple[int], end_color: Tuple[int]):
+    """
+    This is the algorithm to generate the artwork.
+    We will aim to generate at terminal_size_px resolution, but will double
+    it so we can anti-alias it back down.
+    """
 
-    # Settings
+    # Image size.
     terminal_size_px = 512
     scale_factor = terminal_size_px // 128
-    image_size_px = terminal_size_px * 2
+    image_size_px = (
+        terminal_size_px * 2
+    )  # We will scale it up so we can anti-alias it later.
+
+    # Padding from edge of image.
     padding_px = 32 * scale_factor
+
+    # How many nodes to generate (not included inserted nodes)
     iterations = random.choice([7, 8, 9])
+
+    # Line thickness and delta.
     max_thickness = 10 * scale_factor
     min_thickness = 3 * scale_factor
     thickness_delta = 1 * scale_factor
-    shape_close_off = random.choice([4, 7])
+
+    shape_close_off = random.choice(
+        [4, 7]
+    )  # Every X nodes, insert another node to close off the shape.
 
     # Generate a bunch of random points.
     min_p = padding_px
@@ -150,6 +82,7 @@ def generate_art_code(start_color, end_color):
         if i % shape_close_off == 0 and i != 0:
             art_nodes.append(art_nodes[-shape_close_off].clone())
 
+        # Put it in a random spot.
         x = random.randint(min_p, max_p)
         y = random.randint(min_p, max_p)
 
@@ -157,11 +90,12 @@ def generate_art_code(start_color, end_color):
         node = ArtNode(x=x, y=y, thickness=thickness)
         art_nodes.append(node)
 
-        # Change the thickness
+        # Change the thickness.
         thickness += thickness_mod
         thickness = max(thickness, min_thickness)
         thickness = min(thickness, max_thickness)
 
+        # Cap the thickness.
         if thickness >= max_thickness:
             thickness_mod = -thickness_delta
         if thickness <= min_thickness:
@@ -184,7 +118,7 @@ def generate_art_code(start_color, end_color):
         node.y = (node.y + y_offset) // 2
 
     # Serialize the artwork.
-    art = Art()
+    art = Artwork()
     art.size = terminal_size_px
     art.nodes = art_nodes
     art.start_color = start_color
@@ -195,16 +129,17 @@ def generate_art_code(start_color, end_color):
 
 def generate_art_from_code(code: str, output_path: str):
 
-    art = Art.deserialize(code)
+    # Deserialize the art from the code.
+    art = Artwork.deserialize(code)
 
+    # Generate the background.
     image_size_px = art.size * 2
     BG_COLOR = (12, 16, 36)
     BLACK = (0, 0, 0)
-
     image = Image.new("RGB", (image_size_px, image_size_px), color=BG_COLOR)
-    # Draw the artwork.
-    n_points = len(art.nodes)
 
+    # Start drawing the artwork by connecting the nodes and changing the colors.
+    n_points = len(art.nodes)
     for i in range(n_points):
 
         node = art.nodes[i]
@@ -215,20 +150,21 @@ def generate_art_from_code(code: str, output_path: str):
 
         # Get the right color.
         color_factor = abs(((i * 2) / n_points) - 1)
-        line_color = interpolate(art.end_color, art.start_color, color_factor)
+        line_color = Color.interpolate(art.end_color, art.start_color, color_factor)
 
+        # Overlay the image so it looks like 'light'.
         overlay = Image.new("RGB", (image_size_px, image_size_px), color=BLACK)
         overlay_draw = ImageDraw.Draw(overlay)
         overlay_draw.line(
             [node.xy(2), next_node.xy(2)],
             fill=line_color,
-            width=node.line_thickness,
+            width=node.thickness,
         )
         image = ImageChops.add(image, overlay)
 
+    # Anti-alias the image.
     image = image.resize(
         (image_size_px // 2, image_size_px // 2), resample=Image.ANTIALIAS
     )
     image.save(output_path)
-
     return image

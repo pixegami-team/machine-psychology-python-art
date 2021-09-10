@@ -4,14 +4,19 @@ import json
 
 
 def main():
+    """
+    Check for duplicate names in the collection.
+    """
+
+    # Get the collection argument.
     parser = argparse.ArgumentParser()
     parser.add_argument("--collection", type=str)
     args = parser.parse_args()
-
     collection = args.collection
     meta_folder = f"collection_output/{collection}/meta/"
     files = os.listdir(meta_folder)
 
+    # Keep a record.
     registry = {}
 
     for file_name in files:
@@ -28,6 +33,7 @@ def main():
 
         registry[title].append(item_id)
 
+    # Print the duplicates.
     for k, v in registry.items():
         if len(v) > 1:
             print(f"Duplicate: {k, v}")

@@ -3,6 +3,9 @@ from generate_collection import generate_collection
 
 
 def main():
+    """
+    Generate a collection of machine-generated art.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--collection", type=str)
     parser.add_argument("-n", type=int)
