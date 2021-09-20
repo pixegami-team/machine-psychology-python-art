@@ -99,3 +99,11 @@ It comes up with some very interesting stories for each image. For example:
 * FROZEN OCEAN
 
 Together the names and the images are both machine generated, and evoke some story or emotion (at least to me), which is why I called this collection "Machine Psychology."
+
+## ERC 721
+
+I've also added the test ERC-721 contract I was planning to use to mint these, but I didn't go ahead 
+with it because of the gas fees (approx. $1200 at time of writing) to deploy the contract.
+
+I did test it briefly on the Ropsten network though, and it should be reasonable to build out into
+a working contract if I need it someday.

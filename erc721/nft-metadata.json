@@ -1,0 +1,15 @@
+{
+  "attributes": [
+    {
+      "trait_type": "Type",
+      "value": "Swan"
+    },
+    {
+      "trait_type": "Shade",
+      "value": "Dusk"
+    }
+  ],
+  "description": "A genesis test NFT.",
+  "image": "https://pixegami-nft.s3.us-west-2.amazonaws.com/pixegami.png",
+  "name": "Pixegami Black Swan"
+}
